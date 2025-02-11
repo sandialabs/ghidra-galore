@@ -28,7 +28,8 @@ import tqdm
 
 logging.basicConfig(level=logging.ERROR)
 
-RELEASES_URL = "https://api.github.com/repos/NationalSecurityAgency/ghidra/releases"
+# TODO: when there are more than 100 releases, we'll need to walk the pages.
+RELEASES_URL = "https://api.github.com/repos/NationalSecurityAgency/ghidra/releases?per_page=100"
 
 PROJECT_NAME = "default"
 
