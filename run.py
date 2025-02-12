@@ -39,6 +39,9 @@ GhidraRelease = namedtuple("GhidraRelease", ["name", "version", "url", "sha256"]
 # From ChangeHistory, Ghidra started to require JDK 17 at version 10.2
 JDK17_CUTOFF = packaging.version.parse("10.2")
 
+# From ChangeHistory, Ghidra started to require JDK 21 at version 11.2
+JDK21_CUTOFF = packaging.version.parse("11.2")
+
 def parse_releases(data):
     """
     Generator to extract releases from data
@@ -109,7 +112,12 @@ def build_release(release, dry_run):
         f"ghidra:{release.version}",
     ]
 
-    if packaging.version.parse(release.version) >= JDK17_CUTOFF:
+    if packaging.version.parse(release.version) >= JDK21_CUTOFF:
+        cmd.extend([
+            "--build-arg",
+            f"BASE_IMAGE=eclipse-temurin:21-jdk",
+        ])
+    elif packaging.version.parse(release.version) >= JDK17_CUTOFF:
         cmd.extend([
             "--build-arg",
             f"BASE_IMAGE=eclipse-temurin:17-jdk",
