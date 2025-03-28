@@ -2,7 +2,7 @@ ARG BASE_IMAGE=eclipse-temurin:11-jdk
 
 ############################
 ## Container to download
-FROM debian:bookworm as curl
+FROM debian:bookworm AS curl
 
 ARG GHIDRA_VERSION=10.3.2
 ARG GHIDRA_URL=https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_10.3.2_build/ghidra_10.3.2_PUBLIC_20230711.zip
