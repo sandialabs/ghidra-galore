@@ -42,6 +42,14 @@ JDK17_CUTOFF = packaging.version.parse("10.2")
 # From ChangeHistory, Ghidra started to require JDK 21 at version 11.2
 JDK21_CUTOFF = packaging.version.parse("11.2")
 
+version_option = click.option(
+    "--version", default=None,
+    help="filter by version")
+
+dry_run_option = click.option(
+    "--dry-run", default=False, is_flag=True,
+    help="print commands instead of running them")
+
 def parse_releases(data):
     """
     Generator to extract releases from data
@@ -342,14 +350,22 @@ def apply_fn(fn, version):
 
 
 @click.group()
-@click.option('--verbose', default=False, is_flag=True)
-@click.option('--offline', default=None)
+@click.option(
+    "-v", "--verbose", default=False, count=True,
+    help="increase logging verbosity")
+
+@click.option(
+    "--offline", default=None,
+    help="read releases from provided file instead of querying them")
 def cli(verbose, offline):
     global get_releases
 
-    if verbose:
+    if verbose == 1:
         logger = logging.getLogger()
         logger.setLevel(logging.INFO)
+    elif verbose > 1:
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG)
 
     if offline:
         def fn():
@@ -364,8 +380,8 @@ def list_releases():
 
 
 @cli.command()
-@click.option('--version', default=None)
-@click.option('--dry-run', default=False, is_flag=True)
+@version_option
+@dry_run_option
 def build_releases(version, dry_run):
     def wrapped(release):
         return build_release(release, dry_run)
@@ -374,9 +390,9 @@ def build_releases(version, dry_run):
 
 
 @cli.command()
-@click.argument('registry')
-@click.option('--version', default=None)
-@click.option('--dry-run', default=False, is_flag=True)
+@click.argument("registry")
+@version_option
+@dry_run_option
 def push_releases(registry, version, dry_run):
     def wrapped(release):
         return push_release(release, registry, dry_run)
@@ -386,8 +402,8 @@ def push_releases(registry, version, dry_run):
 
 @cli.command()
 @click.argument('registry')
-@click.option('--version', default=None)
-@click.option('--dry-run', default=False, is_flag=True)
+@version_option
+@dry_run_option
 def pull_releases(registry, version, dry_run):
     def wrapped(release):
         return pull_release(release, registry, dry_run)
@@ -397,8 +413,8 @@ def pull_releases(registry, version, dry_run):
 
 @cli.command()
 @click.argument('path')
-@click.option('--version', default=None)
-@click.option('--dry-run', default=False, is_flag=True)
+@version_option
+@dry_run_option
 def save_releases(path, version, dry_run):
     def wrapped(release):
         return save_release(release, path, dry_run)
@@ -408,8 +424,8 @@ def save_releases(path, version, dry_run):
 
 @cli.command()
 @click.argument('path')
-@click.option('--version', default=None)
-@click.option('--dry-run', default=False, is_flag=True)
+@version_option
+@dry_run_option
 def load_releases(path, version, dry_run):
     def wrapped(release):
         return load_release(release, path, dry_run)
@@ -418,8 +434,8 @@ def load_releases(path, version, dry_run):
 
 
 @cli.command()
-@click.option('--version', default=None)
-@click.option('--dry-run', default=False, is_flag=True)
+@version_option
+@dry_run_option
 @click.option('--timeout', default=20*60, help="timeout in seconds", type=int)
 @click.argument('input-file')
 @click.argument('output-dir')
@@ -431,8 +447,8 @@ def import_file(version, dry_run, timeout, input_file, output_dir):
 
 
 @cli.command()
-@click.option('--version', default=None)
-@click.option('--dry-run', default=False, is_flag=True)
+@version_option
+@dry_run_option
 @click.argument('script-dir')
 @click.argument('input-dir')
 @click.argument('script-args', nargs=-1)
