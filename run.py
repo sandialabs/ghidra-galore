@@ -43,8 +43,13 @@ JDK17_CUTOFF = packaging.version.parse("10.2")
 JDK21_CUTOFF = packaging.version.parse("11.2")
 
 version_option = click.option(
-    "--version", default=None,
-    help="filter by version")
+    "--version", default="",
+    help="Comma-separated list of version expressions. "
+         "Each expression should provide an operator and a version. "
+         "If an operator is not provide, equality ('==') is assumed. "
+         "Valid operators include '==', '!=', '<', '<=', '>', '>='. "
+         "Multiple version expressions are AND'd together. "
+         "For example, '>10.0,<11.0' would match versions between 10 and 11.")
 
 dry_run_option = click.option(
     "--dry-run", default=False, is_flag=True,
@@ -74,7 +79,7 @@ def parse_releases(data):
 
         yield GhidraRelease(
             release["name"],
-            release["name"].split(" ")[1],
+            packaging.version.parse(release["name"].split(" ")[1]),
             download_url,
             sha256)
 
@@ -120,12 +125,12 @@ def build_release(release, dry_run):
         f"ghidra:{release.version}",
     ]
 
-    if packaging.version.parse(release.version) >= JDK21_CUTOFF:
+    if release.version >= JDK21_CUTOFF:
         cmd.extend([
             "--build-arg",
             f"BASE_IMAGE=eclipse-temurin:21-jdk",
         ])
-    elif packaging.version.parse(release.version) >= JDK17_CUTOFF:
+    elif release.version >= JDK17_CUTOFF:
         cmd.extend([
             "--build-arg",
             f"BASE_IMAGE=eclipse-temurin:17-jdk",
@@ -249,7 +254,7 @@ def do_import_file(release, input_file, output_dir, timeout, dry_run):
     Import a file into Ghidra and create a project file for the input file.
     """
     # add release version to the path so that we get results for each release
-    output_dir = os.path.join(output_dir, release.version)
+    output_dir = os.path.join(output_dir, str(release.version))
 
     # make paths absolute
     input_file = os.path.abspath(input_file)
@@ -291,7 +296,7 @@ def do_run_script(release, script_dir, input_dir, script_args, dry_run):
     previously the output directory of import_file.
     """
     # add release version to the path so that we get results for each release
-    input_dir = os.path.join(input_dir, release.version)
+    input_dir = os.path.join(input_dir, str(release.version))
 
     project_path = os.path.join(input_dir, f"{PROJECT_NAME}.rep")
     if not os.path.exists(project_path):
@@ -331,21 +336,62 @@ def do_run_script(release, script_dir, input_dir, script_args, dry_run):
             subprocess.call(cmd, stdout=out, stderr=err)
 
 
-def apply_fn(fn, version):
+def compile_version_filter(expression):
+    operator = ""
+    operator_chars = set("<>!=")
+    for c in expression:
+        if c in operator_chars:
+            operator += c
+        else:
+            break
+
+    expression = expression[len(operator):]
+
+    comparison_version = packaging.version.parse(expression)
+
+    if operator == "==" or operator == "":
+        return lambda v: v == comparison_version
+    elif operator == "!=":
+        return lambda v: v != comparison_version
+    elif operator == "<":
+        return lambda v: v < comparison_version
+    elif operator == "<=":
+        return lambda v: v <= comparison_version
+    elif operator == ">":
+        return lambda v: v > comparison_version
+    elif operator == ">=":
+        return lambda v: v >= comparison_version
+    else:
+        raise ValueError("Invalid comparison operator")
+
+
+def apply_fn(fn, version_expr):
     """
     apply_fn calls fn on a particular version or runs it across all versions,
     depending on if version is None.
     """
-    if version is not None:
-        for release in get_releases():
-            if release.version == version:
-                fn(release)
-                return
+    filters = []
+    if version_expr:
+        filters = [compile_version_filter(v.strip()) for v in version_expr.split(",")]
 
-        logging.error("unable to find release matching version: %s", version)
-        return
+    releases = get_releases()
+    if filters:
+        filtered = []
+        for release in releases:
+            for f in filters:
+                if not f(release.version):
+                    break
+            else:
+                # did not break => passed all filters
+                filtered.append(release)
 
-    for release in tqdm.tqdm(get_releases()):
+        if len(filtered) == 0:
+            logging.error("unable to find releases matching version expression: %s", version_expr)
+            return
+
+        releases = filtered
+
+    for release in tqdm.tqdm(releases):
         fn(release)
 
 

@@ -41,6 +41,9 @@ python3 run.py run-script \
    PrintMetrics.java
 ```
 
+In addition to the "equality" filters for versions, users may supply one or
+more version expressions such as '>10.0,<11.0'.
+
 See `python3 run.py --help` for more usage information.
 
 ## License
